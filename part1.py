@@ -1,6 +1,7 @@
 import csv
 import random
 import numpy as np
+import math
 
 
 def generate_data(dim, k, n, out_path, points_gen=None, extras = {}):
@@ -54,5 +55,65 @@ def creatingPoints (dim, numberOfPoints, maxNum):
         points.append(onePoint)
     return points
 
+def load_points(in_path, dim, n=-1, points=[]):
+    with open(in_path, newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        counter = 0
+        for row in reader:
+            if n != -1 and counter >= n:
+                break
+            points.append([float(x) for x in row[:dim]])
+            counter += 1
 
-generate_data(3, 4, 50, "out_path.csv", points_gen=creatingPoints, extras = {})
+
+# generate_data(3, 4, 50, "out_path.csv", points_gen=creatingPoints, extras = {})
+def euclideanDistance(p1, p2):
+    """Compute the Euclidean distance between two points in any dimension."""
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(p1, p2)))
+
+def FindClosestClusters(clusters, DistanceParameterFunc):
+    """Find the pair of clusters with the smallest distance between them."""
+    CurrentMinDist = float('inf')
+    mostClosePair = None
+    for i, ClusterOne in enumerate(clusters):
+        for j, ClusterTwo in enumerate(clusters):
+            if i < j:
+                d = DistanceParameterFunc(np.mean(list(ClusterOne), axis=0), np.mean(list(ClusterTwo), axis=0))
+                if d < CurrentMinDist:
+                    CurrentMinDist = d
+                    mostClosePair = (i, j)
+
+    return mostClosePair
+
+
+def h_clustering(dim, k, points, dist=None, clusts=[]):
+    """Perform bottom-up hierarchical clustering.
+
+    Args:
+        dim (int): Number of dimensions of the points.
+        k (int or None): Desired number of clusters. If None, automatically determine when to stop.
+        points (list of tuples): List of points to cluster.
+        dist (function, optional): Distance function. Defaults to Euclidean distance.
+        clusts (list, optional): Output list to store clusters. Defaults to an empty list.
+
+    Returns:
+        list: List of clusters, where each cluster is a list of points.
+    """
+    if dist is None:
+        dist = euclideanDistance
+
+    clusters = [[p] for p in points]
+
+    while k is None or len(clusters) > k:
+        mostClosePair = FindClosestClusters(clusters, dist)
+        if mostClosePair is None:
+            break
+        i, j = mostClosePair
+        newCluster = clusters[i] + clusters[j]
+        clusters = [c for idx, c in enumerate(clusters) if idx not in (i, j)]
+        clusters.append(newCluster)
+
+        if k is None and len(clusters) <= 1:
+            break
+    clusts.extend([list(cluster) for cluster in clusters])
+    return clusts
