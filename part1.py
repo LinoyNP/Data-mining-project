@@ -68,7 +68,13 @@ def load_points(in_path, dim, n=-1, points=[]):
 
 # generate_data(3, 4, 50, "out_path.csv", points_gen=creatingPoints, extras = {})
 def euclideanDistance(p1, p2):
-    """Compute the Euclidean distance between two points in any dimension."""
+    """
+    Calculate the Euclidean distance between two points.
+
+    :param p1: A list or tuple representing the first point.
+    :param p2: A list or tuple representing the second point.
+    :return: The Euclidean distance between p1 and p2.
+    """
     return math.sqrt(sum((a - b) ** 2 for a, b in zip(p1, p2)))
 
 def FindClosestClusters(clusters, DistanceParameterFunc):
@@ -85,7 +91,6 @@ def FindClosestClusters(clusters, DistanceParameterFunc):
 
     return mostClosePair
 
-
 def h_clustering(dim, k, points, dist=None, clusts=[]):
     """Perform bottom-up hierarchical clustering.
 
@@ -101,9 +106,7 @@ def h_clustering(dim, k, points, dist=None, clusts=[]):
     """
     if dist is None:
         dist = euclideanDistance
-
     clusters = [[p] for p in points]
-
     while k is None or len(clusters) > k:
         mostClosePair = FindClosestClusters(clusters, dist)
         if mostClosePair is None:
@@ -112,8 +115,87 @@ def h_clustering(dim, k, points, dist=None, clusts=[]):
         newCluster = clusters[i] + clusters[j]
         clusters = [c for idx, c in enumerate(clusters) if idx not in (i, j)]
         clusters.append(newCluster)
-
         if k is None and len(clusters) <= 1:
             break
     clusts.extend([list(cluster) for cluster in clusters])
     return clusts
+
+def calculateSSE(centroids, clusters):
+    """
+    Calculate the Sum of Squared Errors (SSE) for the current clustering.
+
+    :param centroids: The list of centroids for each cluster.
+    :param clusters: A list of clusters, each containing the points assigned to that cluster.
+    :return: The SSE value.
+    """
+    sse = 0
+    for i, cluster in enumerate(clusters):
+        centroid = centroids[i]
+        for point in cluster:
+            sse += euclideanDistance(point, centroid) ** 2
+    return sse
+
+def k_means(dim, k, n, points, clusts=[]):
+    """
+    Perform K-Means clustering.
+
+    :param dim: The number of dimensions for each point.
+    :param k: The number of clusters to form (if None, the algorithm will find the optimal k).
+    :param n: The number of points.
+    :param points: A list of points (each a list or tuple of length 'dim').
+    :param clusts: A list to store the resulting clusters.
+    :return: A list of clusters containing points and the optimal k if k is None.
+    """
+    max_iterations = 100
+    if k is None:
+        MinSSE = float('inf')
+        bestK = None
+
+        # Try multiple values for k
+        for currentK in range(2, n//10):  # We start from k=2 because k=1 is not a valid cluster count
+            CurrentClusters, CurrentCentroid = run_k_means(dim, currentK, n, points, max_iterations)
+            currentSSE = calculateSSE (CurrentCentroid,CurrentClusters)
+            if currentSSE < MinSSE:
+                MinSSE = currentSSE
+                bestK = currentK
+        k = bestK
+
+    # Run K-Means with the given k
+    clustersBeforeAssignment, centroid = run_k_means(dim, k, n, points, max_iterations)
+    for clust in clustersBeforeAssignment:
+        clusts.append(clust)
+    return clusts
+
+def run_k_means(dim, k, n, points, max_iterations):
+    """
+    Perform K-Means clustering for a specific value of k.
+
+    :param dim: The number of dimensions for each point.
+    :param k: The number of clusters to form.
+    :param n: The number of points.
+    :param points: A list of points (each a list or tuple of length 'dim').
+    :param max_iterations: The maximum number of iterations to perform.
+    :return: A tuple containing the clusters, centroids
+    """
+
+    # Randomly initialize centroids from the points
+    centroids = random.sample(points, k)
+    clusters = None
+    for iteration in range(max_iterations):
+        clusters = [[] for _ in range(k)]
+
+        # Step 1: Assign points to the nearest centroid
+        for point in points:
+            distances = [euclideanDistance(point, centroid) for centroid in centroids]
+            closest_centroid = distances.index(min(distances))
+            clusters[closest_centroid].append(point)
+        # Step 2: Recalculate centroids
+        new_centroids = []
+        for cluster in clusters:
+            new_centroid = np.mean(cluster, axis=0).tolist()
+            new_centroids.append(new_centroid)
+        # Step 3: Check for convergence (if centroids do not change)
+        if new_centroids == centroids:
+            break
+        centroids = new_centroids
+    return clusters,centroids
