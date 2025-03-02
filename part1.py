@@ -1,10 +1,10 @@
+#Name: Linoy Nisim Pur  ID:324029685
+#Name: Noa Shem Tov     ID:207000134
+"-------------------------------------------------part 1 of 3-----------------------------------------------------------"
 import csv
 import random
 import numpy as np
 import math
-
-from matplotlib import pyplot as plt
-
 
 def generate_data(dim, k, n, out_path, points_gen=None, extras = {}):
     """
@@ -30,7 +30,7 @@ def generate_data(dim, k, n, out_path, points_gen=None, extras = {}):
     maxNum = 10000  # The maximum number that can be in a group
     minNum = 5000  # The minimum number that can be in a group
 
-    with open(out_path, "w", newline="") as file:
+    with open(out_path, "a", newline="") as file:
         writer = csv.writer(file)
         for i in range(k):
             maxMumberInThisGroup = random.randint(minNum, maxNum)  # The maximum number that can be in this group
