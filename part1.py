@@ -3,6 +3,8 @@ import random
 import numpy as np
 import math
 
+from matplotlib import pyplot as plt
+
 
 def generate_data(dim, k, n, out_path, points_gen=None, extras = {}):
     """
@@ -199,3 +201,46 @@ def run_k_means(dim, k, n, points, max_iterations):
             break
         centroids = new_centroids
     return clusters,centroids
+
+def ConvertClustersToFileInOrderByClustersIndex(clusters, filename):
+    """
+    Save clusters to a file with each row containing a point followed by its cluster index.
+    :param clusters: List of clusters, where each cluster is a list of tuples (points).
+    :param filename: Name of the output file
+    """
+    with open(filename, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        for clusterIndex, cluster in enumerate(clusters):
+            for point in cluster:
+                writer.writerow(list(point) + [clusterIndex])
+
+def shuffle_points(input_file, output_file):
+    """
+    Reads a file containing points with cluster numbers, removes the cluster numbers,
+    shuffles the points randomly, and writes them to a new file.
+
+    :param input_file: The original file containing points with cluster numbers.
+    :param output_file: The new file to save the shuffled points without cluster numbers.
+    """
+    with open(input_file, 'r') as f:
+        lines = [line.strip().rsplit(',', 1)[0] for line in f]  # Remove cluster number
+    random.shuffle(lines)  # Shuffle the lines randomly
+    with open(output_file, 'w') as f:
+        f.write('\n'.join(lines))  # Write shuffled points to new file
+
+
+def save_points(clusts, out_path, out_path_tagged):
+    """
+    Save the points to two separate files:
+    1. A file with points and their corresponding cluster index.
+    2. A shuffled file with only the points (without cluster index), in random order.
+
+    :param clusts: List of clusters, where each cluster is a list of tuples (points).
+    :param out_path: The path of the output file for the shuffled points.
+    :param out_path_tagged: The path of the output file for the points with cluster indices.
+    """
+    # Save the points with their cluster indices to a file
+    ConvertClustersToFileInOrderByClustersIndex(clusts, out_path_tagged)
+
+    # Shuffle the points and save them to a new file without the cluster indices
+    shuffle_points(out_path_tagged, out_path)
