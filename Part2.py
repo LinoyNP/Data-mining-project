@@ -1,6 +1,7 @@
 #Name: Linoy Nisim Pur  ID:324029685
 #Name: Noa Shem Tov     ID:207000134
 "-------------------------------------------------part 2 of 3-----------------------------------------------------------"
+import csv
 import random
 import part1
 
@@ -31,9 +32,8 @@ def CreateMaxDate(DIM):
         part1.generate_data(3, currentK, currentN, "out_path.csv", points_gen=part1.creatingPoints, extras = {})
 
 import numpy as np
-from collections import defaultdict
 
-def mahalanobis_distance(x, centroid, std):
+def Mahalanobis(x, centroid, std):
     diff = x - centroid
     normalized_diff = diff / std
     squared = normalized_diff ** 2
@@ -60,48 +60,42 @@ def computeCentroidAndStd(N, SUM, SUMSQ):
     return centroid, std_dev
 
 def bfr_cluster(dim, k, n, block_size, in_path, out_path):
-    for _ in range(n // block_size):
+    DS = {}
+    CS = {}
+    RS = []
+    for i in range(n // block_size):
         AllPoints = []
-        part1.load_points(in_path, dim, block_size, points)
+        part1.load_points(in_path, dim, block_size, AllPoints)
         AllPoints = np.array(AllPoints)
         if k is None:
-            k = max(2, n // 10)
-        initial_indices = random.sample(range(n), k)
-        centroids = AllPoints[initial_indices]
+            k = part1.FindKOptimal(dim,n,AllPoints)
+        initialCentroids = InitializeTheFirst_K_Centroids(AllPoints, k)
+        unassigned_points = []
+        for point in AllPoints:
+            assigned = False
+            for cluster_id, (N, SUM, SUMSQ) in DS.items():
+                centroid, std_dev = computeCentroidAndStd(N, SUM, SUMSQ)
+                if Mahalanobis(point, centroid, std_dev) < 2:
+                    DS[cluster_id] = UnionCluster(N, SUM, SUMSQ, 1, point, point ** 2)
+                    assigned = True
+                    break
+            if not assigned:
+                unassigned_points.append(point)
 
-        DS = {}
-        CS = {}
+        if RS:
+            unassigned_points.extend(RS)
         RS = []
 
-        for block_start in range(0, n, block_size):
-            block_points = AllPoints[block_start:block_start + block_size]
-            unassigned_points = []
-
-            for point in block_points:
-                assigned = False
-                for cluster_id, (N, SUM, SUMSQ) in DS.items():
-                    centroid, std_dev = compute_centroid_and_std(N, SUM, SUMSQ)
-                    if mMahalanobis(point, centroid, std_dev) < 2:
-                        DS[cluster_id] = update_statistics(N, SUM, SUMSQ, 1, point, point ** 2)
-                        assigned = True
-                        break
-                if not assigned:
-                    unassigned_points.append(point)
-
-            if RS:
-                unassigned_points.extend(RS)
-            RS = []
-
-            if len(unassigned_points) >= k:
-                from sklearn.cluster import KMeans
-                kmeans = KMeans(n_clusters=k).fit(unassigned_points)
-                for i, label in enumerate(kmeans.labels_):
-                    cluster_points = np.array(unassigned_points)[kmeans.labels_ == label]
-                    if len(cluster_points) == 1:
-                        RS.append(cluster_points[0])
-                    else:
-                        N, SUM, SUMSQ = calculate_statistics(cluster_points)
-                        CS[len(CS)] = (N, SUM, SUMSQ)
+        if len(unassigned_points) >= k:
+            from sklearn.cluster import KMeans
+            kmeans = KMeans(n_clusters=k).fit(unassigned_points)
+            for i, label in enumerate(kmeans.labels_):
+                cluster_points = np.array(unassigned_points)[kmeans.labels_ == label]
+                if len(cluster_points) == 1:
+                    RS.append(cluster_points[0])
+                else:
+                    N, SUM, SUMSQ = RepresentClusterAsVector(cluster_points)
+                    CS[len(CS)] = (N, SUM, SUMSQ)
 
         final_clusters = {}
         cluster_id = 0
@@ -124,6 +118,6 @@ def bfr_cluster(dim, k, n, block_size, in_path, out_path):
         writer.writerow(header)
 
         for cid, (N, SUM, SUMSQ) in final_clusters.items():
-            centroid, _ = compute_centroid_and_std(N, SUM, SUMSQ)
+            centroid, _ = computeCentroidAndStd(N, SUM, SUMSQ)
             for _ in range(N):
                 writer.writerow(list(centroid) + [cid])

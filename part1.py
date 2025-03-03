@@ -137,10 +137,21 @@ def calculateSSE(centroids, clusters):
             sse += euclideanDistance(point, centroid) ** 2
     return sse
 
+def FindKOptimal(dim,n,points,max_iterations=100):
+    MinSSE = float('inf')
+    bestK = None
+    # Try multiple values for k
+    for currentK in range(2, n // 10):  # We start from k=2 because k=1 is not a valid cluster count
+        CurrentClusters, CurrentCentroid = run_k_means(dim, currentK, n, points, max_iterations)
+        currentSSE = calculateSSE(CurrentCentroid, CurrentClusters)
+        if currentSSE < MinSSE:
+            MinSSE = currentSSE
+            bestK = currentK
+    return bestK
+
 def k_means(dim, k, n, points, clusts=[]):
     """
     Perform K-Means clustering.
-
     :param dim: The number of dimensions for each point.
     :param k: The number of clusters to form (if None, the algorithm will find the optimal k).
     :param n: The number of points.
@@ -150,18 +161,7 @@ def k_means(dim, k, n, points, clusts=[]):
     """
     max_iterations = 100
     if k is None:
-        MinSSE = float('inf')
-        bestK = None
-
-        # Try multiple values for k
-        for currentK in range(2, n//10):  # We start from k=2 because k=1 is not a valid cluster count
-            CurrentClusters, CurrentCentroid = run_k_means(dim, currentK, n, points, max_iterations)
-            currentSSE = calculateSSE (CurrentCentroid,CurrentClusters)
-            if currentSSE < MinSSE:
-                MinSSE = currentSSE
-                bestK = currentK
-        k = bestK
-
+        k = FindKOptimal(dim,n,points,max_iterations)
     # Run K-Means with the given k
     clustersBeforeAssignment, centroid = run_k_means(dim, k, n, points, max_iterations)
     for clust in clustersBeforeAssignment:
