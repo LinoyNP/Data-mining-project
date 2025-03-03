@@ -5,6 +5,7 @@ import csv
 import random
 import part1
 
+
 def CreateMaxDate(DIM):
     """
        Generates large amounts of data by calling the `generate` function multiple times.
