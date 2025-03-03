@@ -30,5 +30,100 @@ def CreateMaxDate(DIM):
         currentK = currentN // 10
         part1.generate_data(3, currentK, currentN, "out_path.csv", points_gen=part1.creatingPoints, extras = {})
 
+import numpy as np
+from collections import defaultdict
+
+def mahalanobis_distance(x, centroid, std):
+    diff = x - centroid
+    normalized_diff = diff / std
+    squared = normalized_diff ** 2
+    distance = np.sqrt(np.sum(squared))
+    return distance
+
+def InitializeTheFirst_K_Centroids(all_points, k):
+    initialIndices = random.sample(all_points, k)
+    return initialIndices
+
+def RepresentClusterAsVector(points):
+    N = len(points)
+    SUM = np.sum(points, axis=0)
+    SUMSQ = np.sum(points ** 2, axis=0)
+    return N, SUM, SUMSQ
+
+def UnionCluster(N1, SUM1, SUMSQ1, N2, SUM2, SUMSQ2):
+    return N1 + N2, SUM1 + SUM2, SUMSQ1 + SUMSQ2
+
+def computeCentroidAndStd(N, SUM, SUMSQ):
+    centroid = SUM / N
+    variance = (SUMSQ / N) - (centroid ** 2)
+    std_dev = np.sqrt(np.maximum(variance, 1e-10))
+    return centroid, std_dev
+
 def bfr_cluster(dim, k, n, block_size, in_path, out_path):
-    pass
+    for _ in range(n // block_size):
+        AllPoints = []
+        part1.load_points(in_path, dim, block_size, points)
+        AllPoints = np.array(AllPoints)
+        if k is None:
+            k = max(2, n // 10)
+        initial_indices = random.sample(range(n), k)
+        centroids = AllPoints[initial_indices]
+
+        DS = {}
+        CS = {}
+        RS = []
+
+        for block_start in range(0, n, block_size):
+            block_points = AllPoints[block_start:block_start + block_size]
+            unassigned_points = []
+
+            for point in block_points:
+                assigned = False
+                for cluster_id, (N, SUM, SUMSQ) in DS.items():
+                    centroid, std_dev = compute_centroid_and_std(N, SUM, SUMSQ)
+                    if mMahalanobis(point, centroid, std_dev) < 2:
+                        DS[cluster_id] = update_statistics(N, SUM, SUMSQ, 1, point, point ** 2)
+                        assigned = True
+                        break
+                if not assigned:
+                    unassigned_points.append(point)
+
+            if RS:
+                unassigned_points.extend(RS)
+            RS = []
+
+            if len(unassigned_points) >= k:
+                from sklearn.cluster import KMeans
+                kmeans = KMeans(n_clusters=k).fit(unassigned_points)
+                for i, label in enumerate(kmeans.labels_):
+                    cluster_points = np.array(unassigned_points)[kmeans.labels_ == label]
+                    if len(cluster_points) == 1:
+                        RS.append(cluster_points[0])
+                    else:
+                        N, SUM, SUMSQ = calculate_statistics(cluster_points)
+                        CS[len(CS)] = (N, SUM, SUMSQ)
+
+        final_clusters = {}
+        cluster_id = 0
+
+        for cluster in DS.values():
+            final_clusters[cluster_id] = cluster
+            cluster_id += 1
+
+        for cluster in CS.values():
+            final_clusters[cluster_id] = cluster
+            cluster_id += 1
+
+        for point in RS:
+            final_clusters[cluster_id] = (1, point, point ** 2)
+            cluster_id += 1
+
+    with open(out_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        header = [f'x{i + 1}' for i in range(dim)] + ['cluster_id']
+        writer.writerow(header)
+
+        for cid, (N, SUM, SUMSQ) in final_clusters.items():
+            centroid, _ = compute_centroid_and_std(N, SUM, SUMSQ)
+            for _ in range(N):
+                writer.writerow(list(centroid) + [cid])
