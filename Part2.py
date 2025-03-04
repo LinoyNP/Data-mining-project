@@ -4,7 +4,9 @@
 import csv
 import random
 import part1
-
+import numpy as np
+from itertools import repeat, islice
+from functools import partial
 
 def CreateMaxDate(DIM):
     """
@@ -32,12 +34,9 @@ def CreateMaxDate(DIM):
         currentK = currentN // 10
         part1.generate_data(3, currentK, currentN, "out_path.csv", points_gen=part1.creatingPoints, extras = {})
 
-import numpy as np
-
 def Mahalanobis(x, centroid, std):
     """
     Computes the Mahalanobis distance of a point from the centroid of a dataset using the standard deviation.
-
     :param x: A data point (vector).
     :param centroid: The centroid of the dataset (vector).
     :param std: The standard deviation of the dataset (vector).
@@ -48,17 +47,6 @@ def Mahalanobis(x, centroid, std):
     squared = normalized_diff ** 2
     distance = np.sqrt(np.sum(squared))
     return distance
-
-def InitializeTheFirst_K_Centroids(all_points, k):
-    """
-        Initializes the first k centroids by randomly selecting points from the input data.
-
-        :param all_points: A list of all points.
-        :param k: The number of centroids to initialize.
-        :return: A list of indices of the randomly selected centroids.
-    """
-    initialIndices = random.sample(list(all_points), k)
-    return initialIndices
 
 def RepresentClusterAsVector(points):
     """
@@ -83,7 +71,7 @@ def UnionCluster(N1, SUM1, SUMSQ1, N2, SUM2, SUMSQ2):
         """
     return N1 + N2, SUM1 + SUM2, SUMSQ1 + SUMSQ2
 
-def computeCentroidAndStd(N, SUM, SUMSQ):
+def computeCentroidPerClusterAndStd(N, SUM, SUMSQ):
     """
         Computes the centroid and standard deviation of a cluster based on its parameters.
 
@@ -94,14 +82,12 @@ def computeCentroidAndStd(N, SUM, SUMSQ):
         """
     centroid = SUM / N
     variance = (SUMSQ / N) - (centroid ** 2)
-    std_dev = np.sqrt(np.maximum(variance, 1e-10))
+    std_dev = np.sqrt(np.maximum(variance, 1e-10))#  1e-10 to prevent Divide by zero
     return centroid, std_dev
-
 
 def merge_clusters(cluster_dict, threshold=2):
     """
         Merges clusters if the Mahalanobis distance between their centroids is less than the specified threshold.
-
         :param cluster_dict: A dictionary of clusters with their parameters (N, SUM, SUMSQ).
         :param threshold: The distance threshold (default is 2).
         :return: A dictionary of merged clusters.
@@ -115,13 +101,13 @@ def merge_clusters(cluster_dict, threshold=2):
         if keys[i] in merged_ids:
             continue
         N1, SUM1, SUMSQ1 = cluster_dict[keys[i]]
-        centroid1, std1 = computeCentroidAndStd(N1, SUM1, SUMSQ1)
+        centroid1, std1 = computeCentroidPerClusterAndStd(N1, SUM1, SUMSQ1)
 
         for j in range(i + 1, len(keys)):
             if keys[j] in merged_ids:
                 continue
             N2, SUM2, SUMSQ2 = cluster_dict[keys[j]]
-            centroid2, std2 = computeCentroidAndStd(N2, SUM2, SUMSQ2)
+            centroid2, std2 = computeCentroidPerClusterAndStd(N2, SUM2, SUMSQ2)
 
             if Mahalanobis(centroid1, centroid2, std1) < threshold:
                 N1, SUM1, SUMSQ1 = UnionCluster(N1, SUM1, SUMSQ1, N2, SUM2, SUMSQ2)
@@ -132,86 +118,155 @@ def merge_clusters(cluster_dict, threshold=2):
         new_id += 1
 
     return merged
+#
+# def bfrCluster(dim, k, n, block_size, in_path, out_path):
+#     """
+#         Performs clustering using the BFR algorithm, with centroid and standard deviation computation and merging of clusters based on Mahalanobis distance.
+#         :param dim: The number of dimensions of the points.
+#         :param k: The desired number of clusters (if None, it will be computed automatically).
+#         :param n: The number of points to cluster.
+#         :param block_size: The number of points to load into memory at once.
+#         :param in_path: The input file path containing the points.
+#         :param out_path: The output file path where the results will be saved.
+#         :return: None. The results are saved to the output file.
+#         """
+#     DS = {}
+#     CS = {}
+#     RS = []
+#     final_clusters = {}
+#     clusters = None
+#     for i in range(n // block_size):
+#         AllPoints = []
+#         part1.load_points(in_path, dim, block_size, AllPoints)#אתחול הנקודות
+#         if k is None:
+#             k = part1.FindKOptimal(dim,n,AllPoints)#מציאת הK האופטימלי
+#             initialCentroids = part1.(AllPoints, k)#בחירת K הנקודות מתוך הנקודות עצמן
+#         unassigned_points = []
+#         for point in AllPoints:
+#             assigned = False
+#             distance_from_point = partial(part1.euclideanDistance, point)
+#             closest_centroid = min(initialCentroids, key=distance_from_point)
+#             if i == 0:
+#                 clusters = [[initialCentroids[i]] for i in range(len(initialCentroids))]
+#             IndexForTheRequired = initialCentroids.index(closest_centroid)
+#             clusters[IndexForTheRequired].append(point)
+#             if i == 0:
+#                 print(clusters)
+#             for cluster_id, (N, SUM, SUMSQ) in DS.items():
+#                 centroid, std_dev = computeCentroidAndStd(N, SUM, SUMSQ)
+#                 if Mahalanobis(point, centroid, std_dev) < 2:
+#                     DS[cluster_id] = UnionCluster(N, SUM, SUMSQ, 1, point, point ** 2)
+#                     assigned = True
+#                     break
+#             if not assigned:
+#                 unassigned_points.append(point)
+#
+#         if RS:
+#             unassigned_points.extend(RS)
+#         RS = []
+#
+#         if len(unassigned_points) >= k:
+#             clusters, centroids = part1.run_k_means(dim, k, n, unassigned_points, 100)
+#             for i, cluster in enumerate(clusters):
+#                 cluster_points = np.array(cluster)
+#                 if len(cluster_points) == 1:
+#                     RS.append(cluster_points[0])
+#                 else:
+#                     N, SUM, SUMSQ = RepresentClusterAsVector(cluster_points)
+#                     CS[len(CS)] = (N, SUM, SUMSQ)
+#             CS = merge_clusters(CS)
+#
+#             for cs_id, (N, SUM, SUMSQ) in list(CS.items()):
+#                 for ds_id, (N_ds, SUM_ds, SUMSQ_ds) in list(DS.items()):
+#                     centroid_cs, std_cs = computeCentroidAndStd(N, SUM, SUMSQ)
+#                     centroid_ds, std_ds = computeCentroidAndStd(N_ds, SUM_ds, SUMSQ_ds)
+#
+#                     if Mahalanobis(centroid_cs, centroid_ds, std_ds) < 2:
+#                         DS[ds_id] = UnionCluster(N_ds, SUM_ds, SUMSQ_ds, N, SUM, SUMSQ)
+#                         del CS[cs_id]
+#                         break
+#         cluster_id = 0
+#
+#         for cluster in DS.values():
+#             final_clusters[cluster_id] = cluster
+#             cluster_id += 1
+#
+#         for cluster in CS.values():
+#             final_clusters[cluster_id] = cluster
+#             cluster_id += 1
+#
+#         for point in RS:
+#             final_clusters[cluster_id] = (1, point, point ** 2)
+#             cluster_id += 1
+#
+#     with open(out_path, 'w', newline='') as csvfile:
+#         writer = csv.writer(csvfile)
+#         header = [f'x{i + 1}' for i in range(dim)] + ['cluster_id']
+#         writer.writerow(header)
+#
+#         for cid, (N, SUM, SUMSQ) in final_clusters.items():
+#             centroid, _ = computeCentroidAndStd(N, SUM, SUMSQ)
+#             for _ in range(N):
+#                 writer.writerow(list(centroid) + [cid])
+
+def MergePointToCluster(point,N,SUM,SUMSQ):
+    arrayPoint = np.array(point)
+    newN = 1 + N
+    newSum = arrayPoint + SUM
+    newSUMSQ = SUMSQ + arrayPoint**2
+    return newN, newSum, newSUMSQ
 
 def bfr_cluster(dim, k, n, block_size, in_path, out_path):
-    """
-        Performs clustering using the BFR algorithm, with centroid and standard deviation computation and merging of clusters based on Mahalanobis distance.
-
-        :param dim: The number of dimensions of the points.
-        :param k: The desired number of clusters (if None, it will be computed automatically).
-        :param n: The number of points to cluster.
-        :param block_size: The number of points to load into memory at once.
-        :param in_path: The input file path containing the points.
-        :param out_path: The output file path where the results will be saved.
-        :return: None. The results are saved to the output file.
-        """
-    DS = {}
-    CS = {}
+    DS = []
+    CS = []
     RS = []
     final_clusters = {}
-    for i in range(n // block_size):
-        AllPoints = []
-        part1.load_points(in_path, dim, block_size, AllPoints)
-        AllPoints = np.array(AllPoints)
-        if k is None:
-            k = part1.FindKOptimal(dim,n,AllPoints)
-        initialCentroids = InitializeTheFirst_K_Centroids(AllPoints, k)
-        unassigned_points = []
-        for point in AllPoints:
-            assigned = False
-            for cluster_id, (N, SUM, SUMSQ) in DS.items():
-                centroid, std_dev = computeCentroidAndStd(N, SUM, SUMSQ)
-                if Mahalanobis(point, centroid, std_dev) < 2:
-                    DS[cluster_id] = UnionCluster(N, SUM, SUMSQ, 1, point, point ** 2)
-                    assigned = True
-                    break
-            if not assigned:
-                unassigned_points.append(point)
-
-        if RS:
-            unassigned_points.extend(RS)
-        RS = []
-
-        if len(unassigned_points) >= k:
-            clusters, centroids = part1.run_k_means(dim, k, n, unassigned_points, 100)
-            for i, cluster in enumerate(clusters):
-                cluster_points = np.array(cluster)
-                if len(cluster_points) == 1:
-                    RS.append(cluster_points[0])
-                else:
-                    N, SUM, SUMSQ = RepresentClusterAsVector(cluster_points)
-                    CS[len(CS)] = (N, SUM, SUMSQ)
-            CS = merge_clusters(CS)
-
-            for cs_id, (N, SUM, SUMSQ) in list(CS.items()):
-                for ds_id, (N_ds, SUM_ds, SUMSQ_ds) in list(DS.items()):
-                    centroid_cs, std_cs = computeCentroidAndStd(N, SUM, SUMSQ)
-                    centroid_ds, std_ds = computeCentroidAndStd(N_ds, SUM_ds, SUMSQ_ds)
-
-                    if Mahalanobis(centroid_cs, centroid_ds, std_ds) < 2:
-                        DS[ds_id] = UnionCluster(N_ds, SUM_ds, SUMSQ_ds, N, SUM, SUMSQ)
-                        del CS[cs_id]
-                        break
-        cluster_id = 0
-
-        for cluster in DS.values():
-            final_clusters[cluster_id] = cluster
-            cluster_id += 1
-
-        for cluster in CS.values():
-            final_clusters[cluster_id] = cluster
-            cluster_id += 1
-
-        for point in RS:
-            final_clusters[cluster_id] = (1, point, point ** 2)
-            cluster_id += 1
-
+    NumOfIteration = (n // block_size) - 1
+    #iteration number 1
+    threshold = 2
+    AllPoints = []
+    part1.load_points(in_path, dim, block_size, AllPoints)  # אתחול הנקודות
+    AllPoints = [tuple(sublist) for sublist in AllPoints]
+    if k is None:
+        k = part1.FindKOptimal(dim, n, AllPoints)  # מציאת הK האופטימלי
+    initialClusters = part1.k_means(dim,k,block_size,AllPoints)
     with open(out_path, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        header = [f'x{i + 1}' for i in range(dim)] + ['cluster_id']
-        writer.writerow(header)
+        for i in range(len(initialClusters)):
+            for point in initialClusters[i]:
+                point = point+(i,)
+                writer.writerow(point)
+    for list in initialClusters:
+        TheReducedPoints = RepresentClusterAsVector(np.array(list))
+        DS.append(TheReducedPoints)
+    flagForKnowingWhichClusterThePointBelongs = False
+    for iteration in range(NumOfIteration):
+        part1.load_points(in_path, dim, block_size, AllPoints)
+        for indexOfPOintInAllPoints,point in enumerate(AllPoints):
+            for ThePlaceOfClusterInDs, VectorInDs in enumerate(DS):
+                N, SUM, SUMSQ = VectorInDs
+                centroid,StdForVector = computeCentroidPerClusterAndStd(N, SUM, SUMSQ)
+                if Mahalanobis(np.array(point), np.array(centroid), StdForVector) < threshold:
+                    DS[ThePlaceOfClusterInDs] = MergePointToCluster(point,N,SUM,SUMSQ)
+                    flagForKnowingWhichClusterThePointBelongs = True
+                    break
+            if not flagForKnowingWhichClusterThePointBelongs:
+                RS.append(point)
+            AllPoints.remove(point)
 
-        for cid, (N, SUM, SUMSQ) in final_clusters.items():
-            centroid, _ = computeCentroidAndStd(N, SUM, SUMSQ)
-            for _ in range(N):
-                writer.writerow(list(centroid) + [cid])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bfr_cluster(3, 2, 4661, 200, "out_path.csv", "blabla")
+

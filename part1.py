@@ -244,3 +244,59 @@ def save_points(clusts, out_path, out_path_tagged):
 
     # Shuffle the points and save them to a new file without the cluster indices
     shuffle_points(out_path_tagged, out_path)
+
+#
+# import matplotlib.pyplot as plt
+# import numpy as np
+#
+# def plot_clusters(clusters):
+#     """
+#     Plot the clusters in a 2D graph to visualize the clustering result.
+#     Each cluster will be colored differently.
+#
+#     :param clusters: List of clusters, where each cluster is a list of points.
+#     :return: None
+#     """
+#     # צביעת כל אשכול בצבע שונה
+#     colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']  # צבעים שונים לכל אשכול
+#     for idx, cluster in enumerate(clusters):
+#         cluster_points = np.array(cluster)
+#         plt.scatter(cluster_points[:, 0], cluster_points[:, 1], color=colors[idx % len(colors)], label=f'Cluster {idx + 1}')
+#
+#     # הגדרת כותרת וצירים
+#     plt.title("Clustering Result")
+#     plt.xlabel("X-axis")
+#     plt.ylabel("Y-axis")
+#     plt.legend()
+#     plt.show()
+#
+# def test_k_means():
+#     """Runs tests on k_means function to ensure correctness and prints clusters."""
+#     try:
+#         # הגדרת פרמטרים לבדיקה
+#         test_csv = "out_path.csv"
+#         # טעינת הנתונים מתוך הקובץ
+#         points_loaded = []
+#         load_points(test_csv, 3, -1, points_loaded)
+#
+#         # ביצוע clustering עם k=None כדי למצוא את k האופטימלי
+#         clusts = []
+#         clusters = k_means(3, None, 50, points_loaded, clusts)
+#
+#         for i, cluster in enumerate(clusters):
+#             print(f"📌 אשכול {i + 1} ({len(cluster)} נקודות):")
+#             for point in cluster[:5]:  # מציגים עד 5 נקודות מכל אשכול כדי לא להציף מידע
+#                 print(f"   {point}")
+#             if len(cluster) > 5:
+#                 print("   ...")  # אם יש יותר מ-5 נקודות, נרמוז שיש עוד
+#
+#         # יצירת גרף
+#         plot_clusters(clusters)
+#
+#         print("\n✅ כל הבדיקות עברו בהצלחה!")
+#
+#     except AssertionError as e:
+#         print(f"\n❌ שגיאה: {e}")
+#
+# # הרצת הבדיקות
+# test_k_means()
