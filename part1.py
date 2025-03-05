@@ -182,6 +182,7 @@ def run_k_means(dim, k, n, points, max_iterations):
 
     # Randomly initialize centroids from the points
     centroids = random.sample(points, k)
+
     clusters = None
     for iteration in range(max_iterations):
         clusters = [[] for _ in range(k)]

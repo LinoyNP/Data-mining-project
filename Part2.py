@@ -2,6 +2,7 @@
 #Name: Noa Shem Tov     ID:207000134
 "-------------------------------------------------part 2 of 3-----------------------------------------------------------"
 import csv
+import os
 import random
 import part1
 import numpy as np
@@ -118,96 +119,6 @@ def merge_clusters(cluster_dict, threshold=2):
         new_id += 1
 
     return merged
-#
-# def bfrCluster(dim, k, n, block_size, in_path, out_path):
-#     """
-#         Performs clustering using the BFR algorithm, with centroid and standard deviation computation and merging of clusters based on Mahalanobis distance.
-#         :param dim: The number of dimensions of the points.
-#         :param k: The desired number of clusters (if None, it will be computed automatically).
-#         :param n: The number of points to cluster.
-#         :param block_size: The number of points to load into memory at once.
-#         :param in_path: The input file path containing the points.
-#         :param out_path: The output file path where the results will be saved.
-#         :return: None. The results are saved to the output file.
-#         """
-#     DS = {}
-#     CS = {}
-#     RS = []
-#     final_clusters = {}
-#     clusters = None
-#     for i in range(n // block_size):
-#         AllPoints = []
-#         part1.load_points(in_path, dim, block_size, AllPoints)#אתחול הנקודות
-#         if k is None:
-#             k = part1.FindKOptimal(dim,n,AllPoints)#מציאת הK האופטימלי
-#             initialCentroids = part1.(AllPoints, k)#בחירת K הנקודות מתוך הנקודות עצמן
-#         unassigned_points = []
-#         for point in AllPoints:
-#             assigned = False
-#             distance_from_point = partial(part1.euclideanDistance, point)
-#             closest_centroid = min(initialCentroids, key=distance_from_point)
-#             if i == 0:
-#                 clusters = [[initialCentroids[i]] for i in range(len(initialCentroids))]
-#             IndexForTheRequired = initialCentroids.index(closest_centroid)
-#             clusters[IndexForTheRequired].append(point)
-#             if i == 0:
-#                 print(clusters)
-#             for cluster_id, (N, SUM, SUMSQ) in DS.items():
-#                 centroid, std_dev = computeCentroidAndStd(N, SUM, SUMSQ)
-#                 if Mahalanobis(point, centroid, std_dev) < 2:
-#                     DS[cluster_id] = UnionCluster(N, SUM, SUMSQ, 1, point, point ** 2)
-#                     assigned = True
-#                     break
-#             if not assigned:
-#                 unassigned_points.append(point)
-#
-#         if RS:
-#             unassigned_points.extend(RS)
-#         RS = []
-#
-#         if len(unassigned_points) >= k:
-#             clusters, centroids = part1.run_k_means(dim, k, n, unassigned_points, 100)
-#             for i, cluster in enumerate(clusters):
-#                 cluster_points = np.array(cluster)
-#                 if len(cluster_points) == 1:
-#                     RS.append(cluster_points[0])
-#                 else:
-#                     N, SUM, SUMSQ = RepresentClusterAsVector(cluster_points)
-#                     CS[len(CS)] = (N, SUM, SUMSQ)
-#             CS = merge_clusters(CS)
-#
-#             for cs_id, (N, SUM, SUMSQ) in list(CS.items()):
-#                 for ds_id, (N_ds, SUM_ds, SUMSQ_ds) in list(DS.items()):
-#                     centroid_cs, std_cs = computeCentroidAndStd(N, SUM, SUMSQ)
-#                     centroid_ds, std_ds = computeCentroidAndStd(N_ds, SUM_ds, SUMSQ_ds)
-#
-#                     if Mahalanobis(centroid_cs, centroid_ds, std_ds) < 2:
-#                         DS[ds_id] = UnionCluster(N_ds, SUM_ds, SUMSQ_ds, N, SUM, SUMSQ)
-#                         del CS[cs_id]
-#                         break
-#         cluster_id = 0
-#
-#         for cluster in DS.values():
-#             final_clusters[cluster_id] = cluster
-#             cluster_id += 1
-#
-#         for cluster in CS.values():
-#             final_clusters[cluster_id] = cluster
-#             cluster_id += 1
-#
-#         for point in RS:
-#             final_clusters[cluster_id] = (1, point, point ** 2)
-#             cluster_id += 1
-#
-#     with open(out_path, 'w', newline='') as csvfile:
-#         writer = csv.writer(csvfile)
-#         header = [f'x{i + 1}' for i in range(dim)] + ['cluster_id']
-#         writer.writerow(header)
-#
-#         for cid, (N, SUM, SUMSQ) in final_clusters.items():
-#             centroid, _ = computeCentroidAndStd(N, SUM, SUMSQ)
-#             for _ in range(N):
-#                 writer.writerow(list(centroid) + [cid])
 
 def MergePointToCluster(point,N,SUM,SUMSQ):
     arrayPoint = np.array(point)
@@ -216,57 +127,160 @@ def MergePointToCluster(point,N,SUM,SUMSQ):
     newSUMSQ = SUMSQ + arrayPoint**2
     return newN, newSum, newSUMSQ
 
+# def bfr_cluster(dim, k, n, block_size, in_path, out_path):
+#     DS = []
+#     CS = []
+#     RS = []
+#     final_clusters = {}
+#     NumOfIteration = (n // block_size) - 1
+#     #iteration number 1
+#     threshold = 2
+#     AllPoints = []
+#     part1.load_points(in_path, dim, block_size, AllPoints)  # אתחול הנקודות
+#     AllPoints = [tuple(sublist) for sublist in AllPoints]
+#     if k is None:
+#         k = part1.FindKOptimal(dim, n, AllPoints)  # מציאת הK האופטימלי
+#     initialClusters = part1.k_means(dim,k,block_size,AllPoints)
+#     with open(out_path, 'w', newline='') as csvfile:
+#         writer = csv.writer(csvfile)
+#         for i in range(len(initialClusters)):
+#             for point in initialClusters[i]:
+#                 point = point+(i,)
+#                 writer.writerow(point)
+#     for list in initialClusters:
+#         TheReducedPoints = RepresentClusterAsVector(np.array(list))
+#         DS.append(TheReducedPoints)
+#     flagForKnowingWhichClusterThePointBelongs = False
+#     for iteration in range(NumOfIteration):
+#         part1.load_points(in_path, dim, block_size, AllPoints)
+#         for indexOfPOintInAllPoints,point in enumerate(AllPoints):
+#             for ThePlaceOfClusterInDs, VectorInDs in enumerate(DS):
+#                 N, SUM, SUMSQ = VectorInDs
+#                 centroid,StdForVector = computeCentroidPerClusterAndStd(N, SUM, SUMSQ)
+#                 if Mahalanobis(np.array(point), np.array(centroid), StdForVector) < threshold:
+#                     DS[ThePlaceOfClusterInDs] = MergePointToCluster(point,N,SUM,SUMSQ)
+#                     flagForKnowingWhichClusterThePointBelongs = True
+#                     break
+#             if not flagForKnowingWhichClusterThePointBelongs:
+#                 RS.append(point)
+#             AllPoints.remove(point)
+#         #K-means on RS
+#         if RS:
+#             ClustersInRs , centroidInRs = part1.run_k_means(dim,k,len(RS),RS,100)
+#             for indexOfCluster, currentClusterForCheck in enumerate(ClustersInRs):#all Clusters
+#                 TheReducedPoints = RepresentClusterAsVector(np.array(currentClusterForCheck))
+#                 N, SUM, SUMSQ = TheReducedPoints
+#                 _, StdForVector = computeCentroidPerClusterAndStd(N, SUM, SUMSQ)
+#                 for point in currentClusterForCheck:#specific cluster
+#                     if Mahalanobis(np.array(point), np.array(centroidInRs[indexOfCluster]), StdForVector) > threshold:
+#                         currentClusterForCheck.remove(point)#remove the point from the cluster because the threshold
+#                 if len(currentClusterForCheck) > 1:
+#                     with open("CS_FILE.csv", 'a', newline='') as csvfile:
+#                         writer = csv.writer(csvfile)
+#                         for point in currentClusterForCheck:
+#                             RS.remove(point)
+#                             point = point + (RepresentClusterAsVector(np.array(currentClusterForCheck)),)
+#                             writer.writerow(point)
+#                     CS.append(RepresentClusterAsVector(np.array(currentClusterForCheck)))
+#
+#
+
 def bfr_cluster(dim, k, n, block_size, in_path, out_path):
-    DS = []
-    CS = []
+    DS = {}  # {cluster_id: (N, SUM, SUMSQ)}
+    CS = {}  # {cluster_id: (N, SUM, SUMSQ)}
     RS = []
-    final_clusters = {}
-    NumOfIteration = (n // block_size) - 1
-    #iteration number 1
+    point_cluster_mapping = {}  # {point_index: cluster_id}
+    cluster_id_counter = 0
     threshold = 2
+
+    # Load first block
     AllPoints = []
-    part1.load_points(in_path, dim, block_size, AllPoints)  # אתחול הנקודות
+    part1.load_points(in_path, dim, block_size, AllPoints)
     AllPoints = [tuple(sublist) for sublist in AllPoints]
+
     if k is None:
-        k = part1.FindKOptimal(dim, n, AllPoints)  # מציאת הK האופטימלי
-    initialClusters = part1.k_means(dim,k,block_size,AllPoints)
+        k = part1.FindKOptimal(dim, n, AllPoints)
+
+    initialClusters = part1.k_means(dim, k, block_size, AllPoints)
+
     with open(out_path, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        for i in range(len(initialClusters)):
-            for point in initialClusters[i]:
-                point = point+(i,)
-                writer.writerow(point)
-    for list in initialClusters:
-        TheReducedPoints = RepresentClusterAsVector(np.array(list))
-        DS.append(TheReducedPoints)
-    flagForKnowingWhichClusterThePointBelongs = False
-    for iteration in range(NumOfIteration):
-        part1.load_points(in_path, dim, block_size, AllPoints)
-        for indexOfPOintInAllPoints,point in enumerate(AllPoints):
-            for ThePlaceOfClusterInDs, VectorInDs in enumerate(DS):
-                N, SUM, SUMSQ = VectorInDs
-                centroid,StdForVector = computeCentroidPerClusterAndStd(N, SUM, SUMSQ)
-                if Mahalanobis(np.array(point), np.array(centroid), StdForVector) < threshold:
-                    DS[ThePlaceOfClusterInDs] = MergePointToCluster(point,N,SUM,SUMSQ)
-                    flagForKnowingWhichClusterThePointBelongs = True
+        for i, cluster in enumerate(initialClusters):
+            N, SUM, SUMSQ = RepresentClusterAsVector(np.array(cluster))
+            DS[cluster_id_counter] = (N, SUM, SUMSQ)
+            for point in cluster:
+                writer.writerow(point + (cluster_id_counter,))
+                point_cluster_mapping[tuple(point)] = cluster_id_counter
+            cluster_id_counter += 1
+
+    total_blocks = (n // block_size) - 1
+
+    for _ in range(total_blocks):
+        block_points = []
+        part1.load_points(in_path, dim, block_size, block_points)
+        for point in block_points:
+            assigned = False
+            for cluster_id, (N, SUM, SUMSQ) in DS.items():
+                centroid, std = computeCentroidPerClusterAndStd(N, SUM, SUMSQ)
+                if Mahalanobis(np.array(point), centroid, std) < threshold:
+                    DS[cluster_id] = MergePointToCluster(point, N, SUM, SUMSQ)
+                    point_cluster_mapping[tuple(point)] = cluster_id
+                    assigned = True
                     break
-            if not flagForKnowingWhichClusterThePointBelongs:
+            if not assigned:
                 RS.append(point)
-            AllPoints.remove(point)
 
+        if len(RS) >= 2 * k:
+            RS_clusters, RS_centroids = part1.run_k_means(dim, k, len(RS), RS, 100)
+            new_RS = []
+            for i, cluster in enumerate(RS_clusters):
+                if len(cluster) > 1:
+                    N, SUM, SUMSQ = RepresentClusterAsVector(np.array(cluster))
+                    CS[cluster_id_counter] = (N, SUM, SUMSQ)
+                    for point in cluster:
+                        point_cluster_mapping[tuple(point)] = cluster_id_counter
+                    cluster_id_counter += 1
+                else:
+                    new_RS.extend(cluster)
+            RS = new_RS
+        CS = merge_clusters(CS, threshold)
 
+    if len(RS) > 0:
+        RS_clusters, RS_centroids = part1.run_k_means(dim, k, len(RS), RS, 100)
+        for i, cluster in enumerate(RS_clusters):
+            if len(cluster) > 1:
+                N, SUM, SUMSQ = RepresentClusterAsVector(np.array(cluster))
+                CS[cluster_id_counter] = (N, SUM, SUMSQ)
+                for point in cluster:
+                    point_cluster_mapping[tuple(point)] = cluster_id_counter
+                cluster_id_counter += 1
 
+    for cs_id, (N_cs, SUM_cs, SUMSQ_cs) in CS.items():
+        cs_centroid, cs_std = computeCentroidPerClusterAndStd(N_cs, SUM_cs, SUMSQ_cs)
+        merged = False
+        for ds_id, (N_ds, SUM_ds, SUMSQ_ds) in DS.items():
+            ds_centroid, ds_std = computeCentroidPerClusterAndStd(N_ds, SUM_ds, SUMSQ_ds)
+            if Mahalanobis(cs_centroid, ds_centroid, ds_std) < threshold:
+                DS[ds_id] = UnionCluster(N_ds, SUM_ds, SUMSQ_ds, N_cs, SUM_cs, SUMSQ_cs)
+                merged = True
+                break
+        if not merged:
+            DS[cluster_id_counter] = (N_cs, SUM_cs, SUMSQ_cs)
+            cluster_id_counter += 1
 
+    final_points = list(point_cluster_mapping.keys())
+    final_clusters = []
+    for cluster_id, (N, SUM, SUMSQ) in DS.items():
+        centroid, _ = computeCentroidPerClusterAndStd(N, SUM, SUMSQ)
+        final_clusters.append(centroid)
 
+    final_assignments = part1.k_means(dim, k, len(final_points), final_points)
 
-
-
-
-
-
-
-
-
+    with open(out_path, 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        for cluster_idx, cluster in enumerate(final_assignments):
+            for point in cluster:
+                writer.writerow(point + (cluster_idx,))
 
 bfr_cluster(3, 2, 4661, 200, "out_path.csv", "blabla")
 
