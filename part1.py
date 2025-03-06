@@ -26,25 +26,26 @@ def generate_data(dim, k, n, out_path, points_gen=None, extras = {}):
     """
 
     arrayOfGroupSizes = np.random.multinomial(n, [1/k] * k)  # Divides n among k groups randomly so that the sum of the sizes is exactly n.
-
     maxNum = 10000  # The maximum number that can be in a group
     minNum = 5000  # The minimum number that can be in a group
 
     with open(out_path, "a", newline="") as file:
         writer = csv.writer(file)
         for i in range(k):
-            maxMumberInThisGroup = random.randint(minNum, maxNum)  # The maximum number that can be in this group
-            groupOfPoints = points_gen(dim, arrayOfGroupSizes[i], maxMumberInThisGroup)
+            #maxMumberInThisGroup = random.randint(minNum, maxNum)  # The maximum number that can be in this group
+            maxMumberInThisGroup = random.randint(list(arrayOfGroupSizes)[i]*2, list(arrayOfGroupSizes)[i]*4)  # The maximum number that can be in this group
+            groupOfPoints = points_gen(dim, arrayOfGroupSizes[i], maxMumberInThisGroup, i)
             writer.writerows(groupOfPoints)
             # for point in groupOfPoints:
             #     file.write(f" {point[:]}\n")
 
-def creatingPoints (dim, numberOfPoints, maxNum):
+def creatingPoints (dim, numberOfPoints, maxNum, numberOfGroups):
     """
     Creating points for one iteration
     :param dim: The number of dimensions in the space where the points will be generated.
     :param numberOfPoints: number of points that will be in this group
     :param maxNum: The maximum number that can be in this group
+    :param numberOfGroups: number that represents the group
     :return: list of points
     """
     points = []
@@ -54,6 +55,7 @@ def creatingPoints (dim, numberOfPoints, maxNum):
         #Creation of one point
         for j in range(dim):
             onePoint = onePoint + (random.randint(maxNum//2, maxNum), )
+        onePoint = onePoint +(numberOfGroups,)
         points.append(onePoint)
     return points
 
@@ -93,32 +95,116 @@ def FindClosestClusters(clusters, DistanceParameterFunc):
 
     return mostClosePair
 
+#This is our initial algorithm but it is inefficient because each time we calculated the distance between every 2 clusters
+# def h_clustering(dim, k, points, dist=None, clusts=[]):
+#     """Perform bottom-up hierarchical clustering.
+#
+#     Args:
+#         dim (int): Number of dimensions of the points.
+#         k (int or None): Desired number of clusters. If None, automatically determine when to stop.
+#         points (list of tuples): List of points to cluster.
+#         dist (function, optional): Distance function. Defaults to Euclidean distance.
+#         clusts (list, optional): Output list to store clusters. Defaults to an empty list.
+#
+#     Returns:
+#         list: List of clusters, where each cluster is a list of points.
+#     """
+#     if dist is None:
+#         dist = euclideanDistance
+#     clusters = [[p] for p in points]
+#     while k is None or len(clusters) > k:
+#         print(len(clusters))
+#         mostClosePair = FindClosestClusters(clusters, dist)
+#         if mostClosePair is None:
+#             break
+#         i, j = mostClosePair
+#         newCluster = clusters[i] + clusters[j]
+#         clusters = [c for idx, c in enumerate(clusters) if idx not in (i, j)]
+#         clusters.append(newCluster)
+#         if k is None and len(clusters) <= 1:
+#             break
+#     clusts.extend([list(cluster) for cluster in clusters])
+#     return clusts
+
 def h_clustering(dim, k, points, dist=None, clusts=[]):
-    """Perform bottom-up hierarchical clustering.
-
-    Args:
-        dim (int): Number of dimensions of the points.
-        k (int or None): Desired number of clusters. If None, automatically determine when to stop.
-        points (list of tuples): List of points to cluster.
-        dist (function, optional): Distance function. Defaults to Euclidean distance.
-        clusts (list, optional): Output list to store clusters. Defaults to an empty list.
-
-    Returns:
-        list: List of clusters, where each cluster is a list of points.
     """
+        Perform bottom-up hierarchical clustering with distance matrix optimization.
+
+        This function implements an optimized version of hierarchical clustering by using
+        a dictionary (distance matrix) to store and dynamically update distances between clusters.
+        It avoids recalculating all distances in every iteration, improving efficiency.
+
+        Args:
+            dim (int): Number of dimensions of the points.
+            k (int or None): Desired number of clusters. If None, clustering will continue until one cluster remains.
+            points (list of tuples): List of points to be clustered.
+            dist (function, optional): Distance function. Defaults to Euclidean distance.
+            clusts (list, optional): Output list to store clusters. Defaults to an empty list.
+
+        Returns:
+            list: List of clusters, where each cluster is represented as a list of points.
+
+        Optimization Details:
+        - A dictionary is used to maintain distances between clusters, with keys as tuples (i, j)
+          representing cluster indices and values as distances.
+        - After merging clusters, only distances related to the new cluster are recalculated,
+          and irrelevant entries are removed from the dictionary.
+        """
     if dist is None:
         dist = euclideanDistance
+
+    # Initialize clusters and distance matrix
     clusters = [[p] for p in points]
+    distance_matrix = {
+        (i, j): dist(np.mean(clusters[i], axis=0), np.mean(clusters[j], axis=0))
+        for i in range(len(clusters)) for j in range(i + 1, len(clusters))
+    }
+
     while k is None or len(clusters) > k:
-        mostClosePair = FindClosestClusters(clusters, dist)
+        print(f"Number of clusters: {len(clusters)}")
+
+        # Find the closest pair of clusters
+        mostClosePair = min(distance_matrix, key=distance_matrix.get, default=None)
         if mostClosePair is None:
             break
+
         i, j = mostClosePair
-        newCluster = clusters[i] + clusters[j]
+
+        # Validate indices before proceeding
+        if i >= len(clusters) or j >= len(clusters):
+            print(f"Error: Indices out of range: i={i}, j={j}, clusters={len(clusters)}")
+            break
+
+        # Merge clusters
+        new_cluster = clusters[i] + clusters[j]
+
+        # Remove old distances from the matrix
+        distance_matrix = {
+            key: value for key, value in distance_matrix.items() if i not in key and j not in key
+        }
+
+        # Update clusters
         clusters = [c for idx, c in enumerate(clusters) if idx not in (i, j)]
-        clusters.append(newCluster)
+        clusters.append(new_cluster)
+
+        # Add new distances for the merged cluster
+        new_idx = len(clusters) - 1
+        for idx, cluster in enumerate(clusters[:-1]):
+            if idx != new_idx:  # Ensure we're not calculating self-distance
+                distance_matrix[(min(idx, new_idx), max(idx, new_idx))] = dist(
+                    np.mean(cluster, axis=0), np.mean(new_cluster, axis=0)
+                )
+
+        # Ensure distance matrix consistency
+        distance_matrix = {
+            key: value for key, value in distance_matrix.items()
+            if key[0] < len(clusters) and key[1] < len(clusters)
+        }
+
+        # Stop if we've reached the desired number of clusters
         if k is None and len(clusters) <= 1:
             break
+
     clusts.extend([list(cluster) for cluster in clusters])
     return clusts
 
