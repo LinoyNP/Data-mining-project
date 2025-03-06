@@ -335,7 +335,7 @@ def process_block(block, cluster_sums, cluster_counts, cluster_squares_sums):
 # file_path = 'dataForBfr.csv'  # Replace with your file path
 dim = random.randint(5, 20)
 k = random.randint(5, 20)
-Part2.bfr_cluster(dim, k, 1000, 1000,'dataForBfr.csv' , 'resultDataForBfr.csv')
+Part2.bfr_cluster(dim, k, 2000, 1000,'dataForBfr.csv' , 'resultDataForBfr.csv')
 davies_bouldin_index_bfr = calculate_davies_bouldin_index('resultDataForBfr.csv')
 print(f'Davies-Bouldin index for bfr: {davies_bouldin_index_bfr}')
 
