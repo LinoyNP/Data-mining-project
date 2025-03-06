@@ -2,7 +2,11 @@
 #Name: Noa Shem Tov     ID:207000134
 "-------------------------------------------------part 3 of 3-----------------------------------------------------------"
 import random
+
+import numpy as np
+
 import part1
+import Part2
 import pandas as pd
 from collections import Counter
 
@@ -262,3 +266,79 @@ def calculate_n(file_size_gb=10):
 # part1.generate_data(dim1, k1, n1, out_path="dataForBfr.csv", points_gen=part1.creatingPoints)
 # dim2, k2, n2 = calculate_n()
 # part1.generate_data(dim2, k2, n2, out_path="dataForCure.csv", points_gen=part1.creatingPoints)
+
+
+import math
+
+def euclideanDistance(point1, point2):
+    """ Calculates the euclidean distance between two points. """
+    return math.sqrt(sum([(a - b) ** 2 for a, b in zip(point1, point2)]))
+
+def calculate_davies_bouldin_index(file_path, block_size=1000):
+    """ Calculates the Davies-Bouldin index for a large file. """
+
+    cluster_sums = {}  # Sum of points for each cluster
+    cluster_counts = {}  # Number of points in each cluster
+    cluster_squares_sums = {} # Sum of squares of distances
+
+    with open(file_path, 'r') as file:
+        block = []
+        for line in file:
+            block.append(line.strip().split(','))
+            if len(block) >= block_size:
+                cluster_sums, cluster_counts, cluster_squares_sums = process_block(block, cluster_sums, cluster_counts, cluster_squares_sums)
+                block = []
+
+        # Process the remaining block
+        if block:
+            cluster_sums, cluster_counts, cluster_squares_sums = process_block(block, cluster_sums, cluster_counts, cluster_squares_sums)
+
+    # Calculate final centroids
+    centroids = {cluster: [s / cluster_counts[cluster] for s in cluster_sums[cluster]] for cluster in cluster_sums}
+
+    #calculate scatters
+    scatters = {}
+    for cluster in cluster_sums:
+        scatters[cluster] = np.sqrt(cluster_squares_sums[cluster]/cluster_counts[cluster])
+
+    #calculate similarity matrix
+    similarity_matrix = np.zeros((len(centroids),len(centroids)))
+    for i,cluster1 in enumerate(centroids):
+        for j,cluster2 in enumerate(centroids):
+            if i != j:
+                similarity_matrix[i][j] = (scatters[cluster1] + scatters[cluster2])/euclideanDistance(centroids[cluster1],centroids[cluster2])
+
+    #calculate davies bouldin index
+    davies_bouldin_index = np.mean(np.max(similarity_matrix,axis=1))
+
+    return davies_bouldin_index
+
+def process_block(block, cluster_sums, cluster_counts, cluster_squares_sums):
+    """ Processes a block of data and updates the metrics. """
+
+    for row in block:
+        point = np.array(row[:-1], dtype=float)
+        cluster = int(row[-1])
+
+        # Update cluster sums and counts
+        if cluster not in cluster_sums:
+            cluster_sums[cluster] = np.zeros_like(point)
+            cluster_counts[cluster] = 0
+            cluster_squares_sums[cluster] = 0
+        cluster_sums[cluster] += point
+        cluster_counts[cluster] += 1
+        cluster_squares_sums[cluster] += np.sum(np.square(point - cluster_sums[cluster]/cluster_counts[cluster]))
+
+    return cluster_sums, cluster_counts, cluster_squares_sums
+
+# Example usage
+# file_path = 'dataForBfr.csv'  # Replace with your file path
+dim = random.randint(5, 20)
+k = random.randint(5, 20)
+Part2.bfr_cluster(dim, k, 4000, 1000,'dataForBfr.csv' , 'resultDataForBfr.csv')
+davies_bouldin_index_bfr = calculate_davies_bouldin_index('resultDataForBfr.csv')
+print(f'Davies-Bouldin index for bfr: {davies_bouldin_index_bfr}')
+
+Part2.cure_cluster(dim, k, 4000, 1000,'dataForCure.csv' , 'resultDataForCure.csv')
+davies_bouldin_index_cure = calculate_davies_bouldin_index('resultDataForCure.csv')
+print(f'Davies-Bouldin index for cure: {davies_bouldin_index_cure}')
