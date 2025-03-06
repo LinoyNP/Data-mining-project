@@ -139,7 +139,7 @@ def calculateSSE(centroids, clusters):
 
 def FindKOptimal(dim,n,points,max_iterations=100):
     MinSSE = float('inf')
-    bestK = None
+    bestK = 2
     # Try multiple values for k
     for currentK in range(2, n // 10):  # We start from k=2 because k=1 is not a valid cluster count
         CurrentClusters, CurrentCentroid = run_k_means(dim, currentK, n, points, max_iterations)
@@ -181,6 +181,8 @@ def run_k_means(dim, k, n, points, max_iterations):
     """
 
     # Randomly initialize centroids from the points
+    if k is None or k < 1 or k > len(points):
+        k = random.randint(1, len(points))
     centroids = random.sample(points, k)
 
     clusters = None
