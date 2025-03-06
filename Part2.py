@@ -2,12 +2,11 @@
 #Name: Noa Shem Tov     ID:207000134
 "-------------------------------------------------part 2 of 3-----------------------------------------------------------"
 import csv
-import os
+import math
 import random
-import part1
+import part1 # Assuming part1 contains required functions like load_points and h_clustering
 import numpy as np
-from itertools import repeat, islice
-from functools import partial
+
 
 def CreateMaxDate(DIM):
     """
@@ -34,6 +33,8 @@ def CreateMaxDate(DIM):
         currentN = random.randint(30,1000)
         currentK = currentN // 10
         part1.generate_data(3, currentK, currentN, "out_path.csv", points_gen=part1.creatingPoints, extras = {})
+
+"-----------------------------------------------------------------------------------------------------------------------"
 
 def Mahalanobis(x, centroid, std):
     """
@@ -117,7 +118,6 @@ def merge_clusters(cluster_dict, threshold=2):
         merged[new_id] = (N1, SUM1, SUMSQ1)
         merged_ids.add(keys[i])
         new_id += 1
-
     return merged
 
 def MergePointToCluster(point,N,SUM,SUMSQ):
@@ -282,5 +282,124 @@ def bfr_cluster(dim, k, n, block_size, in_path, out_path):
             for point in cluster:
                 writer.writerow(point + (cluster_idx,))
 
-bfr_cluster(3, 2, 4661, 200, "out_path.csv", "blabla")
+#bfr_cluster(3, 2, 4660, 200, "out_path.csv", "blabla")
 
+"-----------------------------------------------------------------------------------------------------------------------"
+
+
+def load_points(in_path, dim, X, start_row, points=[]):
+    """
+    Reads points from a CSV file in stages.
+
+    :param in_path: The input file path.
+    :param dim: The number of dimensions for each data point.
+    :param X: The number of rows to read at a time.
+    :param start_row: The row to start reading from (used for incremental reads).
+    :param points: A list to append the points to.
+    """
+    with open(in_path, newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        # Move to the start_row position by iterating through the rows
+        for _ in range(start_row):
+            next(reader)
+        # Read up to X rows or until the end of the file
+        counter = 0
+        for row in reader:
+            if counter >= X:
+                break
+            points.append([float(x) for x in row[:dim]])
+            counter += 1
+        # Return the next row to start from for the next call
+        return points, counter + start_row  # the next start_row will be this
+def cure_cluster(dim, k, n, block_size, in_path, out_path):
+    """
+       Implements the CURE clustering algorithm.
+       :param dim: Dimension of the data points.
+       :param k: Number of clusters.
+       :param n: Total number of data points.
+       :param block_size: Number of points loaded per block.
+       :param in_path: Input file path containing data points.
+       :param out_path: Output file path to save clustered points.
+    """
+    #Step 1
+    # Load the first block of points
+    AllPoints = []
+    start_row = 0
+    AllPoints, start_row = load_points(in_path, dim, block_size, start_row, AllPoints)
+    AllPoints = [tuple(sublist) for sublist in AllPoints] # Convert lists to tuples for immutability
+
+    #Perform hierarchical clustering to get k initial clusters
+    clustersForStepOne = []
+    clustersForStepOne = part1.h_clustering(dim, k, AllPoints,None, clustersForStepOne)
+
+    # Define the number of representative points per cluster
+    # We use math.ceil(n / block_size) to ensure that the loop runs enough iterations
+    # so that all points are processed, even if n is not perfectly divisible by block_size.
+    # When n is not a multiple of block_size, ceil ensures one extra iteration
+    # to process the remaining points.
+    points_per_cluster = max(k,block_size) // min(k,block_size) #the amount of representative points for each cluster
+
+    # Compute centroids for each cluster
+    Centroids = []
+    for cluster in clustersForStepOne:
+        cluster_array = np.array(cluster)
+        centroid = np.sum(cluster_array, axis=0) / len(cluster_array) # =0 for sum by columns
+        Centroids.append(tuple(map(float, centroid)))
+    #Finding the point that are dispersed as possible
+    # Select representative points (most dispersed from centroid)
+    RepresentativePoints = []
+    for i, cluster in enumerate(clustersForStepOne):
+        listOfDistancBetweenPointInCurrentCluster = []
+        for point in cluster:
+            distance = part1.euclideanDistance(point, Centroids[i])
+            listOfDistancBetweenPointInCurrentCluster.append((distance, point))
+        listOfDistancBetweenPointInCurrentCluster.sort(key=lambda x: x[0], reverse=True)
+        farthest_points = [point for _, point in listOfDistancBetweenPointInCurrentCluster[:points_per_cluster]]
+        RepresentativePoints.append(farthest_points)
+    # Compute new representative points (midpoint between the representative point and centroid)
+    # Adjust representative points by shrinking towards centroid
+    UpdatedRepresentativePoints = []
+    for i, cluster_representatives in enumerate(RepresentativePoints):
+        centroid = np.array(Centroids[i])
+        updated_points = []
+        for rep_point in cluster_representatives:
+            # First midpoint: between representative point and centroid
+            midpoint1 = (np.array(rep_point) + centroid) / 2
+            # Second midpoint: between the first midpoint and the representative point
+            midpoint2 = (midpoint1 + np.array(rep_point)) / 2
+            # Append the final updated representative point
+            updated_points.append(midpoint2)
+        UpdatedRepresentativePoints.append(updated_points)
+
+    # Step 2: Assign each point to the closest cluster based on the representative points
+    final_assignments = [[] for _ in range(k)]  #  List to store assigned points per cluster
+    NumOfIteartion = math.ceil(n / block_size)
+    start_row = 0
+    for _ in range(NumOfIteartion):
+        AllPoints = []
+        AllPoints, start_row = load_points(in_path, dim, block_size, start_row, AllPoints)
+        for point in AllPoints:
+            min_distance = float('inf')
+            closest_cluster = -1
+
+            # Calculate the distance from the point to all representative points
+            # Find the closest representative point
+            for cluster_idx, rep_points in enumerate(UpdatedRepresentativePoints):
+                for rep_point in rep_points:
+                    distance = part1.euclideanDistance(point, rep_point)
+                    if distance < min_distance:
+                        min_distance = distance
+                        closest_cluster = cluster_idx
+
+            # Assign the point to the closest cluster
+            final_assignments[closest_cluster].append(point)
+
+    # Write the final assignments to a CSV file
+    # Save the final assignments to a CSV file
+    with open(out_path, 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        for cluster_idx, cluster in enumerate(final_assignments):
+            for point in cluster:
+                writer.writerow(list(point) + [cluster_idx])
+## Example usage
+cure_cluster(3, 2, 4660, 3, "out_path.csv", "noa")
