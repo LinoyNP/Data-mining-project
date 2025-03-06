@@ -223,10 +223,21 @@ def calculateSSE(centroids, clusters):
             sse += euclideanDistance(point, centroid) ** 2
     return sse
 
+def FindKOptimal(dim,n,points,max_iterations=100):
+    MinSSE = float('inf')
+    bestK = 2
+    # Try multiple values for k
+    for currentK in range(2, n // 10):  # We start from k=2 because k=1 is not a valid cluster count
+        CurrentClusters, CurrentCentroid = run_k_means(dim, currentK, n, points, max_iterations)
+        currentSSE = calculateSSE(CurrentCentroid, CurrentClusters)
+        if currentSSE < MinSSE:
+            MinSSE = currentSSE
+            bestK = currentK
+    return bestK
+
 def k_means(dim, k, n, points, clusts=[]):
     """
     Perform K-Means clustering.
-
     :param dim: The number of dimensions for each point.
     :param k: The number of clusters to form (if None, the algorithm will find the optimal k).
     :param n: The number of points.
@@ -236,18 +247,7 @@ def k_means(dim, k, n, points, clusts=[]):
     """
     max_iterations = 100
     if k is None:
-        MinSSE = float('inf')
-        bestK = None
-
-        # Try multiple values for k
-        for currentK in range(2, n//10):  # We start from k=2 because k=1 is not a valid cluster count
-            CurrentClusters, CurrentCentroid = run_k_means(dim, currentK, n, points, max_iterations)
-            currentSSE = calculateSSE (CurrentCentroid,CurrentClusters)
-            if currentSSE < MinSSE:
-                MinSSE = currentSSE
-                bestK = currentK
-        k = bestK
-
+        k = FindKOptimal(dim,n,points,max_iterations)
     # Run K-Means with the given k
     clustersBeforeAssignment, centroid = run_k_means(dim, k, n, points, max_iterations)
     for clust in clustersBeforeAssignment:
@@ -267,7 +267,10 @@ def run_k_means(dim, k, n, points, max_iterations):
     """
 
     # Randomly initialize centroids from the points
+    if k is None or k < 1 or k > len(points):
+        k = random.randint(1, len(points))
     centroids = random.sample(points, k)
+
     clusters = None
     for iteration in range(max_iterations):
         clusters = [[] for _ in range(k)]
@@ -330,3 +333,59 @@ def save_points(clusts, out_path, out_path_tagged):
 
     # Shuffle the points and save them to a new file without the cluster indices
     shuffle_points(out_path_tagged, out_path)
+
+#
+# import matplotlib.pyplot as plt
+# import numpy as np
+#
+# def plot_clusters(clusters):
+#     """
+#     Plot the clusters in a 2D graph to visualize the clustering result.
+#     Each cluster will be colored differently.
+#
+#     :param clusters: List of clusters, where each cluster is a list of points.
+#     :return: None
+#     """
+#     # צביעת כל אשכול בצבע שונה
+#     colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']  # צבעים שונים לכל אשכול
+#     for idx, cluster in enumerate(clusters):
+#         cluster_points = np.array(cluster)
+#         plt.scatter(cluster_points[:, 0], cluster_points[:, 1], color=colors[idx % len(colors)], label=f'Cluster {idx + 1}')
+#
+#     # הגדרת כותרת וצירים
+#     plt.title("Clustering Result")
+#     plt.xlabel("X-axis")
+#     plt.ylabel("Y-axis")
+#     plt.legend()
+#     plt.show()
+#
+# def test_k_means():
+#     """Runs tests on k_means function to ensure correctness and prints clusters."""
+#     try:
+#         # הגדרת פרמטרים לבדיקה
+#         test_csv = "out_path.csv"
+#         # טעינת הנתונים מתוך הקובץ
+#         points_loaded = []
+#         load_points(test_csv, 3, -1, points_loaded)
+#
+#         # ביצוע clustering עם k=None כדי למצוא את k האופטימלי
+#         clusts = []
+#         clusters = k_means(3, None, 50, points_loaded, clusts)
+#
+#         for i, cluster in enumerate(clusters):
+#             print(f"📌 אשכול {i + 1} ({len(cluster)} נקודות):")
+#             for point in cluster[:5]:  # מציגים עד 5 נקודות מכל אשכול כדי לא להציף מידע
+#                 print(f"   {point}")
+#             if len(cluster) > 5:
+#                 print("   ...")  # אם יש יותר מ-5 נקודות, נרמוז שיש עוד
+#
+#         # יצירת גרף
+#         plot_clusters(clusters)
+#
+#         print("\n✅ כל הבדיקות עברו בהצלחה!")
+#
+#     except AssertionError as e:
+#         print(f"\n❌ שגיאה: {e}")
+#
+# # הרצת הבדיקות
+# test_k_means()
